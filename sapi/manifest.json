@@ -1,0 +1,51 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@latest/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
+  "schemaVersion": 2,
+  "id": "monitor",
+  "name": "运行时监控",
+  "configKey": "monitor",
+  "requires": [],
+  "permissions": [
+    "config:read:monitor",
+    "db:read:sfmc_monitor_metrics",
+    "db:write:sfmc_monitor_metrics",
+    "db:read:sfmc_monitor_player_chunks",
+    "db:write:sfmc_monitor_player_chunks",
+    "service:tps.current",
+    "service:tps.status",
+    "service:monitor.metrics"
+  ],
+  "services": {
+    "provides": [
+      {
+        "name": "tps.current",
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "tps.status",
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
+      },
+      {
+        "name": "monitor.metrics",
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
+      }
+    ],
+    "requires": []
+  },
+  "notes": "零依赖监控中枢：100 tick 环形 TPS + 600 tick 宏观落库；!tps / !monitor。"
+}

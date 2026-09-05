@@ -1,0 +1,4 @@
+{
+  "sample_interval_ticks": 600,
+  "history_retention_hours": 72
+}
