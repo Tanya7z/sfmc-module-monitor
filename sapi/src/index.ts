@@ -3,9 +3,9 @@
  */
 
 import { Player, system, world } from "@minecraft/server";
+import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { config } from "@sfmc-bds/sdk/sapi/config";
 import { db } from "@sfmc-bds/sdk/sapi/db";
-import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
 import { Command, debug, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 import { service } from "@sfmc-bds/sdk/sapi/service";
 
@@ -184,6 +184,42 @@ async function pruneHistory(): Promise<void> {
   }
 }
 
+function registerCommands(): void {
+  Command.register(
+    "tps",
+    "tps.see",
+    (player: Player | undefined) => {
+      const { text } = getTpsStatus();
+      if (player) Msg.info(text, player);
+      else debug.i("Monitor", text);
+    },
+    "查看服务器 TPS",
+    MODULE_ID
+  );
+  Command.register(
+    "monitor",
+    "monitor.admin",
+    (player: Player | undefined) => {
+      const snap = buildMetricsSnapshot();
+      const lines = [
+        `§e===== 服务器监控 =====`,
+        getTpsStatus().text,
+        `§7主世界实体: §f${snap.entities["minecraft:overworld"] ?? 0}`,
+        `§7下界实体: §f${snap.entities["minecraft:nether"] ?? 0}`,
+        `§7末地实体: §f${snap.entities["minecraft:the_end"] ?? 0}`,
+        `§7视距区块估算: §f${snap.totalLoadedChunks}`,
+        `§e====================`,
+      ].join("\n");
+      if (player) Msg.info(lines, player);
+      else debug.i("Monitor", lines);
+    },
+    "查看服务器综合负载",
+    MODULE_ID
+  );
+}
+
+registerCommands();
+
 ModuleRegistry.register({
   id: MODULE_ID,
   afterWorldLoad: true,
@@ -191,39 +227,6 @@ ModuleRegistry.register({
     registerPermissions() {
       Permission.register("tps.see", Permission.Any);
       Permission.register("monitor.admin", Permission.Admin);
-    },
-    registerCommands() {
-      Command.register(
-        "tps",
-        "tps.see",
-        (player: Player | undefined) => {
-          const { text } = getTpsStatus();
-          if (player) Msg.info(text, player);
-          else debug.i("Monitor", text);
-        },
-        "查看服务器 TPS",
-        MODULE_ID,
-      );
-      Command.register(
-        "monitor",
-        "monitor.admin",
-        (player: Player | undefined) => {
-          const snap = buildMetricsSnapshot();
-          const lines = [
-            `§e===== 服务器监控 =====`,
-            getTpsStatus().text,
-            `§7主世界实体: §f${snap.entities["minecraft:overworld"] ?? 0}`,
-            `§7下界实体: §f${snap.entities["minecraft:nether"] ?? 0}`,
-            `§7末地实体: §f${snap.entities["minecraft:the_end"] ?? 0}`,
-            `§7视距区块估算: §f${snap.totalLoadedChunks}`,
-            `§e====================`,
-          ].join("\n");
-          if (player) Msg.info(lines, player);
-          else debug.i("Monitor", lines);
-        },
-        "查看服务器综合负载",
-        MODULE_ID,
-      );
     },
     registerEvents() {
       // 采样由 interval 驱动
@@ -257,7 +260,7 @@ ModuleRegistry.register({
       sampleRunId = system.runInterval(() => pushTickSample(), 1);
       reportRunId = system.runInterval(() => {
         void persistSnapshot().catch((e) =>
-          debug.e("Monitor", "persist failed", e instanceof Error ? e : new Error(String(e))),
+          debug.e("Monitor", "persist failed", e instanceof Error ? e : new Error(String(e)))
         );
       }, sampleIntervalTicks);
       cleanupRunId = system.runInterval(() => void pruneHistory(), 72000);

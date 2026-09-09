@@ -47,5 +47,5 @@
     ],
     "requires": []
   },
-  "notes": "零依赖监控中枢：100 tick 环形 TPS + 600 tick 宏观落库；!tps / !monitor。"
+  "notes": "零依赖监控中枢：100 tick 环形 TPS + 600 tick 宏观落库；原生 tps/monitor 命令。"
 }
