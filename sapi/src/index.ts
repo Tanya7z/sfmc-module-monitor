@@ -24,6 +24,7 @@ const unprovide: Array<() => void> = [];
 let sampleRunId: number | undefined;
 let reportRunId: number | undefined;
 let cleanupRunId: number | undefined;
+let persistInProgress = false;
 let sampleIntervalTicks = 600;
 let retentionHours = 72;
 
@@ -139,28 +140,34 @@ export function buildMetricsSnapshot(): {
 }
 
 async function persistSnapshot(): Promise<void> {
-  const tps = getTPS();
-  const entities = snapshotEntities();
-  const recordedAt = Date.now();
-  const playerChunks = snapshotPlayerChunks();
+  if (persistInProgress) return;
+  persistInProgress = true;
+  try {
+    const tps = getTPS();
+    const entities = snapshotEntities();
+    const recordedAt = Date.now();
+    const playerChunks = snapshotPlayerChunks();
 
-  await db.tx(async (tx) => {
-    for (const [dim, count] of Object.entries(entities)) {
-      await tx.insert(METRICS_TABLE, {
-        id: `${recordedAt}-${dim}`,
-        recorded_at: recordedAt,
-        tps,
-        dimension: dim,
-        entity_count: count,
-      });
-    }
-    for (const row of playerChunks) {
-      await tx.insert(CHUNKS_TABLE, {
-        ...row,
-        id: `${recordedAt}-${String(row.player_id)}`,
-      });
-    }
-  });
+    await db.tx(async (tx) => {
+      for (const [dim, count] of Object.entries(entities)) {
+        await tx.insert(METRICS_TABLE, {
+          id: `${recordedAt}-${dim}`,
+          recorded_at: recordedAt,
+          tps,
+          dimension: dim,
+          entity_count: count,
+        });
+      }
+      for (const row of playerChunks) {
+        await tx.insert(CHUNKS_TABLE, {
+          ...row,
+          id: `${recordedAt}-${String(row.player_id)}`,
+        });
+      }
+    });
+  } finally {
+    persistInProgress = false;
+  }
 }
 
 async function pruneHistory(): Promise<void> {
@@ -186,18 +193,7 @@ async function pruneHistory(): Promise<void> {
 
 function registerCommands(): void {
   Command.register(
-    "tps",
-    "tps.see",
-    (player: Player | undefined) => {
-      const { text } = getTpsStatus();
-      if (player) Msg.info(text, player);
-      else debug.i("Monitor", text);
-    },
-    "查看服务器 TPS",
-    MODULE_ID
-  );
-  Command.register(
-    "monitor",
+    "status",
     "monitor.admin",
     (player: Player | undefined) => {
       const snap = buildMetricsSnapshot();
@@ -225,7 +221,6 @@ ModuleRegistry.register({
   afterWorldLoad: true,
   lifecycle: {
     registerPermissions() {
-      Permission.register("tps.see", Permission.Any);
       Permission.register("monitor.admin", Permission.Admin);
     },
     registerEvents() {
